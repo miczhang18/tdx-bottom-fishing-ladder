@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ladder Lab | Michael Zhang</title>
+  <meta name="description" content="Ladder Lab — two personal trading indicators, a divergence signal and a blue/yellow trend ladder, explored interactively on NVDA." />
+  <meta name="theme-color" content="#0a0b0d" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0b0d'/><rect x='14' y='16' width='36' height='5' rx='2' fill='%233d8bff'/><rect x='14' y='29' width='36' height='5' rx='2' fill='%23f2c230'/><rect x='14' y='42' width='36' height='5' rx='2' fill='%233d8bff'/></svg>" />
+  <script>
+    (function () {
+      var lang = null;
+      try { var q = new URLSearchParams(location.search).get("lang"); if (q === "zh" || q === "en") lang = q; } catch (e) {}
+      if (!lang) { try { var s = localStorage.getItem("site-lang"); if (s === "zh" || s === "en") lang = s; } catch (e) {} }
+      if (!lang) lang = /^zh/i.test(navigator.language || "") ? "zh" : "en";
+      window.__LANG = lang;
+      document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    })();
+  </script>
+  <link rel="preload" href="fonts/SpaceGrotesk-normal-latin-7.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="css/fonts.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ========== NAV ========== -->
+  <header class="nav" id="nav">
+    <a class="nav-back" href="/" aria-label="Back to portfolio">
+      <span class="nav-logo">MZ<span class="accent">.</span></span>
+      <span class="nav-back-text mono"><span aria-hidden="true">←</span> <span data-i18n="back">Portfolio</span></span>
+    </a>
+    <nav class="nav-links mono" aria-label="Sections">
+      <a href="#lab" data-i18n="navChart">Chart</a>
+      <a href="#how" data-i18n="navHow">How it works</a>
+      <a href="#record" data-i18n="navRecord">Track record</a>
+      <a href="#rules" data-i18n="navRules">Rules</a>
+      <a href="#code" data-i18n="navCode">Build</a>
+    </nav>
+    <button class="lang-toggle mono" id="langToggle" type="button" aria-label="Switch language">
+      <span data-lang="en">EN</span><span aria-hidden="true" class="sep">/</span><span data-lang="zh">中</span>
+    </button>
+  </header>
+
+  <main>
+    <!-- ========== HERO ========== -->
+    <section class="hero" id="top">
+      <div class="hero-bg" aria-hidden="true">
+        <div class="rung-field" id="rungField"></div>
+      </div>
+      <div class="wrap hero-inner">
+        <p class="eyebrow mono"><span class="dot"></span><span data-i18n="eyebrow"></span></p>
+        <h1 class="hero-title" data-i18n-html="heroTitle"></h1>
+        <p class="hero-sub" data-i18n="heroSub"></p>
+
+        <form class="search" id="searchForm" autocomplete="off" role="search">
+          <span class="search-prompt mono" aria-hidden="true">$</span>
+          <input class="search-input mono" id="searchInput" type="text" value="NVDA" spellcheck="false" aria-describedby="searchMsg" />
+          <span class="search-lock mono"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M4 7V5a4 4 0 1 1 8 0v2h1v8H3V7h1Zm2 0h4V5a2 2 0 1 0-4 0v2Z"/></svg><span data-i18n="lockHint">Owner only</span></span>
+          <button class="search-go" type="submit" aria-label="Go">→</button>
+        </form>
+        <p class="search-msg mono" id="searchMsg" role="status"></p>
+
+        <ul class="hero-status" id="heroStatus"></ul>
+      </div>
+      <a class="scroll-cue mono" href="#lab"><span data-i18n="scrollCue">Scroll</span><i></i></a>
+    </section>
+
+    <!-- ========== LAB (chart) ========== -->
+    <section class="lab" id="lab">
+      <div class="wrap">
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="term-id">
+              <span class="term-sym" id="symName">NVDA</span>
+              <span class="term-px mono" id="symPx"></span>
+              <span class="term-chg mono" id="symChg"></span>
+            </div>
+            <div class="seg" role="tablist" id="tfSeg">
+              <button role="tab" data-tf="D" data-i18n="tfD">Daily</button>
+              <button role="tab" data-tf="W" data-i18n="tfW">Weekly</button>
+              <button role="tab" data-tf="M" data-i18n="tfM">Monthly</button>
+            </div>
+            <div class="term-tools">
+              <label class="chk blue"><input type="checkbox" id="tBlue" checked /><i></i><span data-i18n="blue">Blue ladder</span></label>
+              <label class="chk yellow"><input type="checkbox" id="tYellow" checked /><i></i><span data-i18n="yellow">Yellow ladder</span></label>
+              <button class="tool" id="zoomOut" data-i18n-aria="zoomOut" aria-label="Zoom out">−</button>
+              <button class="tool" id="zoomIn" data-i18n-aria="zoomIn" aria-label="Zoom in">+</button>
+              <button class="tool" id="resetView" data-i18n-aria="reset" aria-label="Reset view">⟲</button>
+              <button class="tool tool-play" id="replayBtn"><span class="ico" aria-hidden="true">▶</span><span data-i18n="replay">Replay</span></button>
+            </div>
+          </div>
+
+          <div class="term-body">
+            <div class="chart-col">
+              <div class="legend mono" id="legend">
+                <span class="lg"><i class="sw sw-buy">▲</i><span data-i18n="legendBuy"></span></span>
+                <span class="lg"><i class="sw sw-sell">▼</i><span data-i18n="legendSell"></span></span>
+                <span class="lg"><i class="sw sw-line blue"></i><span data-i18n="legendBlue"></span></span>
+                <span class="lg"><i class="sw sw-line yellow"></i><span data-i18n="legendYellow"></span></span>
+              </div>
+              <div class="chart-wrap">
+                <div class="readout mono" id="readout" aria-live="off"></div>
+                <div class="stage mono" id="stage" hidden><span class="stage-dot"></span><span id="stageText"></span><span class="stage-date" id="stageDate"></span></div>
+                <div class="chart" id="chart" role="img" aria-label="NVDA candlestick chart with ladder bands and signals"></div>
+                <div class="pane-label mono" id="macdLabel"><span data-i18n="legendHist"></span> &nbsp;<span class="pl-dif">— <span data-i18n="legendDif"></span></span> <span class="pl-dea">┄ <span data-i18n="legendDea"></span></span></div>
+              </div>
+              <p class="chart-hint mono" data-i18n="dragHint"></p>
+            </div>
+
+            <aside class="inspector" id="inspector" aria-live="polite" data-lenis-prevent>
+              <div class="insp-card" id="inspCard"></div>
+              <div class="insp-list">
+                <div class="insp-list-head mono">
+                  <span data-i18n="signals">Signals</span>
+                  <span id="sigCount"></span>
+                </div>
+                <ol class="sig-list" id="sigList"></ol>
+                <button class="sig-more mono" id="sigMore" type="button"></button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== HOW IT WORKS ========== -->
+    <section class="section" id="how">
+      <div class="wrap">
+        <div class="sec-head">
+          <p class="eyebrow mono" data-i18n="howEyebrow"></p>
+          <h2 class="sec-title" data-i18n-html="howTitle"></h2>
+        </div>
+        <ol class="steps">
+          <li class="step reveal">
+            <span class="step-n mono">01</span>
+            <svg class="step-fig" viewBox="0 0 220 120" aria-hidden="true">
+              <polyline class="f-price" points="10,30 50,62 80,44 120,84 150,64 190,96" />
+              <line class="f-div price" x1="50" y1="62" x2="190" y2="96" />
+              <polyline class="f-dif" points="10,92 50,110 80,96 120,104 150,92 190,98" transform="translate(0,-6)" />
+              <line class="f-div dif" x1="50" y1="104" x2="190" y2="92" />
+              <circle class="f-pt" cx="50" cy="62" r="3.5" /><circle class="f-pt" cx="190" cy="96" r="3.5" />
+            </svg>
+            <h3 data-i18n="step1T"></h3>
+            <p data-i18n="step1B"></p>
+          </li>
+          <li class="step reveal">
+            <span class="step-n mono">02</span>
+            <svg class="step-fig" viewBox="0 0 220 120" aria-hidden="true">
+              <path class="f-dif" d="M10 70 C 50 98, 80 104, 110 100 S 160 96, 200 98" />
+              <rect class="f-zone" x="70" y="56" width="140" height="56" rx="6" />
+              <text class="f-txt" x="140" y="34" text-anchor="middle">WAIT</text>
+            </svg>
+            <h3 data-i18n="step2T"></h3>
+            <p data-i18n="step2B"></p>
+          </li>
+          <li class="step reveal">
+            <span class="step-n mono">03</span>
+            <svg class="step-fig" viewBox="0 0 220 120" aria-hidden="true">
+              <path class="f-dif" d="M10 70 C 60 104, 100 108, 130 102 S 180 74, 210 62" />
+              <circle class="f-pt buy" cx="132" cy="101" r="5" />
+              <path class="f-arrow buy" d="M132 82 l-7 10 h14 z" />
+            </svg>
+            <h3 data-i18n="step3T"></h3>
+            <p data-i18n="step3B"></p>
+          </li>
+          <li class="step reveal">
+            <span class="step-n mono">04</span>
+            <svg class="step-fig" viewBox="0 0 220 120" aria-hidden="true">
+              <path class="f-band blue" d="M0 46 C 60 52, 120 60, 220 40 L 220 58 C 120 78, 60 70, 0 64 Z" />
+              <polyline class="f-price" points="10,96 40,88 70,100 100,92 130,74 160,50 200,30" />
+              <circle class="f-pt" cx="160" cy="50" r="4" />
+            </svg>
+            <h3 data-i18n="step4T"></h3>
+            <p data-i18n="step4B"></p>
+          </li>
+        </ol>
+        <div class="how-foot">
+          <button class="btn btn-primary" id="howCta" type="button"><span data-i18n="howCta"></span> <span aria-hidden="true">→</span></button>
+          <p class="mono how-mirror" data-i18n="howMirror"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== TRACK RECORD ========== -->
+    <section class="section section-alt" id="record">
+      <div class="wrap">
+        <div class="sec-head sec-head-row">
+          <div>
+            <p class="eyebrow mono" data-i18n="recEyebrow"></p>
+            <h2 class="sec-title" data-i18n-html="recTitle"></h2>
+          </div>
+          <div class="rec-controls">
+            <div class="seg seg-sm" id="tfSeg2" role="tablist">
+              <button role="tab" data-tf="D" data-i18n="tfD"></button>
+              <button role="tab" data-tf="W" data-i18n="tfW"></button>
+              <button role="tab" data-tf="M" data-i18n="tfM"></button>
+            </div>
+            <div class="seg seg-sm" id="hzSeg" role="tablist" aria-label="Horizon">
+              <button role="tab" data-hz="5">5</button>
+              <button role="tab" data-hz="10">10</button>
+              <button role="tab" data-hz="20">20</button>
+            </div>
+          </div>
+        </div>
+        <p class="rec-sub" id="recSub"></p>
+        <p class="rec-insight" id="recInsight"></p>
+        <div class="rec-grid" id="recGrid"></div>
+        <div class="rec-foot">
+          <button class="link-btn mono" id="recToggle" type="button"></button>
+          <p class="mono rec-note" data-i18n="recNote"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== RULES ========== -->
+    <section class="section" id="rules">
+      <div class="wrap">
+        <div class="sec-head">
+          <p class="eyebrow mono" data-i18n="rulesEyebrow"></p>
+          <h2 class="sec-title" data-i18n-html="rulesTitle"></h2>
+        </div>
+        <div class="rules">
+          <article class="rule reveal rule-buy">
+            <h3><span class="rule-ico" aria-hidden="true">▲</span><span data-i18n="ruleBuyT"></span></h3>
+            <ol><li data-i18n="ruleBuy1"></li><li data-i18n="ruleBuy2"></li><li data-i18n="ruleBuy3"></li><li data-i18n="ruleBuy4"></li></ol>
+          </article>
+          <article class="rule reveal rule-sell">
+            <h3><span class="rule-ico" aria-hidden="true">▼</span><span data-i18n="ruleSellT"></span></h3>
+            <ol><li data-i18n="ruleSell1"></li><li data-i18n="ruleSell2"></li><li data-i18n="ruleSell3"></li></ol>
+          </article>
+          <article class="rule reveal rule-avoid">
+            <h3><span class="rule-ico" aria-hidden="true">✕</span><span data-i18n="ruleAvoidT"></span></h3>
+            <ol><li data-i18n="ruleAvoid1"></li><li data-i18n="ruleAvoid2"></li><li data-i18n="ruleAvoid3"></li></ol>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== UNDER THE HOOD ========== -->
+    <section class="section section-alt" id="code">
+      <div class="wrap">
+        <div class="sec-head">
+          <p class="eyebrow mono" data-i18n="codeEyebrow"></p>
+          <h2 class="sec-title" data-i18n-html="codeTitle"></h2>
+          <p class="sec-sub" data-i18n="codeSub"></p>
+        </div>
+        <ol class="pipe reveal">
+          <li class="pipe-step"><span class="pipe-n mono">01</span><h3 data-i18n="pipe1T"></h3><p class="mono" data-i18n="pipe1B"></p></li>
+          <li class="pipe-step pipe-lock"><span class="pipe-n mono">02 <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M4 7V5a4 4 0 1 1 8 0v2h1v8H3V7h1Zm2 0h4V5a2 2 0 1 0-4 0v2Z"/></svg></span><h3 data-i18n="pipe2T"></h3><p class="mono" data-i18n="pipe2B"></p></li>
+          <li class="pipe-step"><span class="pipe-n mono">03</span><h3 data-i18n="pipe3T"></h3><p class="mono" data-i18n="pipe3B"></p></li>
+          <li class="pipe-step pipe-out"><span class="pipe-n mono">04</span><h3 data-i18n="pipe4T"></h3><p class="mono" data-i18n="pipe4B"></p></li>
+        </ol>
+        <div class="facts">
+          <div class="fact reveal"><h3 data-i18n="fact1T"></h3><p data-i18n="fact1B"></p></div>
+          <div class="fact reveal"><h3 data-i18n="fact2T"></h3><p data-i18n="fact2B"></p></div>
+          <div class="fact reveal"><h3 data-i18n="fact3T"></h3><p data-i18n="fact3B"></p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="foot-mark" aria-hidden="true">Ladder <em>Lab</em><span class="accent">.</span></div>
+      <div class="foot-row">
+        <p data-i18n="footDisclaimer"></p>
+        <p class="mono" id="footData"></p>
+        <a class="mono foot-back" href="/"><span aria-hidden="true">←</span> <span data-i18n="footBack"></span></a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/vendor/lightweight-charts.js"></script>
+  <script src="js/vendor/gsap.min.js"></script>
+  <script src="js/vendor/ScrollTrigger.min.js"></script>
+  <script src="js/vendor/lenis.min.js"></script>
+  <script src="data/NVDA.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
